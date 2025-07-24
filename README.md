@@ -140,5 +140,3 @@ Justintang412@gmail.com |+1 (647) 612 0176 | Richmond Hill, Ontario, Canada
 https://linkedin.com/in/justintang412 | https://github.com/justintang412
 
 ---
-
-*Thank you for reviewing my project! I’m excited to bring these skills to your team.*
