@@ -123,13 +123,13 @@ This project demonstrates my ability to:
 
 ## Screenshots
 
-![Home](./screenshots/home.png)
+<img src="./screenshots/home.png" alt="Home" width="300" style="border:2px solid #ccc; border-radius:8px;" />
 
-![Login](./screenshots/login.png)
+<img src="./screenshots/login.png" alt="Login" width="300" style="border:2px solid #ccc; border-radius:8px;" />
 
-<img src="./screenshots/loginWithGoogleAccount.png" alt="Login with Google Account" width="300"/>
+<img src="./screenshots/loginWithGoogleAccount.png" alt="Login with Google Account" width="300" style="border:2px solid #ccc; border-radius:8px;" />
 
-![Patient Search](./screenshots/patientSearch.png)
+<img src="./screenshots/patientSearch.png" alt="Patient Search" width="300" style="border:2px solid #ccc; border-radius:8px;" />
 
 ---
 
