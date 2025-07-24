@@ -1,0 +1,33 @@
+// server/tsconfig.json
+
+{
+  "compilerOptions": {
+    /* Base Options */
+    "esModuleInterop": true, // THE FIX: Enables compatibility with CommonJS modules like Express.
+    "skipLibCheck": true, // Skips type checking of declaration files.
+    "target": "es2022", // Target modern ECMAScript features.
+    "allowJs": true, // Allow JavaScript files to be compiled.
+    "resolveJsonModule": true, // Allows importing JSON files.
+    "moduleDetection": "force", // Ensures files are treated as modules.
+
+    /* Strictness */
+    "strict": true, // Enable all strict type-checking options.
+    "noUncheckedIndexedAccess": true, // Add 'undefined' to types when accessing arrays/objects by index.
+
+    /* Module Resolution */
+    "module": "NodeNext", // Use the modern Node.js module resolution strategy.
+    "moduleResolution": "NodeNext",
+    "baseUrl": ".", // Base directory for module resolution.
+
+    /* Output */
+    "outDir": "dist", // Where to output the compiled JavaScript.
+    "sourceMap": true, // Generate sourcemaps for debugging.
+
+    /* Linter */
+    "noUnusedLocals": true,
+    "noUnusedParameters": true,
+    "noFallthroughCasesInSwitch": true
+  },
+  "include": ["src/**/*"], // Which files to include in compilation.
+  "exclude": ["node_modules"] // Which files to exclude.
+}

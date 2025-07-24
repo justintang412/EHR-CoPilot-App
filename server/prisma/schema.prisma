@@ -1,0 +1,775 @@
+generator client {
+  provider        = "prisma-client-js"
+  previewFeatures = ["multiSchema"]
+}
+
+datasource db {
+  provider = "postgresql"
+  url      = env("DATABASE_URL")
+  schemas  = ["mimiciv_derived", "mimiciv_ed", "mimiciv_hosp", "mimiciv_icu", "mimiciv_note", "public"]
+}
+
+/// The underlying table does not contain a valid unique identifier and can therefore currently not be handled by Prisma Client.
+model Patient {
+  subject_id        Int
+  gender            String?    @db.Char(1)
+  anchor_age        Int?      @db.SmallInt
+  anchor_year       Int?      @db.SmallInt
+  anchor_year_group String?    @db.VarChar(20)
+  dod               DateTime? @db.Date
+
+  @@index([anchor_age], map: "patients_idx01")
+  @@index([anchor_year], map: "patients_idx02")
+  @@map("patients")
+  @@schema("mimiciv_hosp")
+  @@id([subject_id])
+}
+
+model diagnosis {
+  subject_id  Int
+  stay_id     Int
+  seq_num     Int
+  icd_code    String  @db.VarChar(8)
+  icd_version Int     @db.SmallInt
+  icd_title   String
+  edstays     edstays @relation(fields: [stay_id], references: [stay_id], onDelete: NoAction, onUpdate: NoAction, map: "diagnosis_edstays_fk")
+
+  @@id([stay_id, seq_num], map: "diagnosis_pk")
+  @@index([subject_id, stay_id], map: "diagnosis_idx01")
+  @@index([icd_code, icd_version], map: "diagnosis_idx02")
+  @@schema("mimiciv_ed")
+}
+
+model edstays {
+  subject_id        Int
+  hadm_id           Int?
+  stay_id           Int         @id(map: "edstays_pk")
+  intime            DateTime    @db.Timestamp(0)
+  outtime           DateTime    @db.Timestamp(0)
+  gender            String?     @db.VarChar(1)
+  race              String?     @db.VarChar(60)
+  arrival_transport String?     @db.VarChar(50)
+  disposition       String?     @db.VarChar(255)
+  diagnosis         diagnosis[]
+  medrecon          medrecon[]  @ignore
+  pyxis             pyxis[]     @ignore
+  triage            triage?
+  vitalsign         vitalsign[]
+
+  @@index([subject_id, hadm_id, stay_id], map: "edstays_idx01")
+  @@index([intime, outtime], map: "edstays_idx02")
+  @@schema("mimiciv_ed")
+}
+
+/// The underlying table does not contain a valid unique identifier and can therefore currently not be handled by Prisma Client.
+model medrecon {
+  subject_id     Int
+  stay_id        Int
+  charttime      DateTime? @db.Timestamp(0)
+  name           String?   @db.VarChar(255)
+  gsn            String?   @db.VarChar(10)
+  ndc            String?   @db.VarChar(12)
+  etc_rn         Int?      @db.SmallInt
+  etccode        String?   @db.VarChar(8)
+  etcdescription String?   @db.VarChar(255)
+  edstays        edstays   @relation(fields: [stay_id], references: [stay_id], onDelete: NoAction, onUpdate: NoAction, map: "medrecon_edstays_fk")
+
+  @@index([subject_id, stay_id, charttime], map: "medrecon_idx01")
+  @@ignore
+  @@schema("mimiciv_ed")
+}
+
+/// The underlying table does not contain a valid unique identifier and can therefore currently not be handled by Prisma Client.
+model pyxis {
+  subject_id Int
+  stay_id    Int
+  charttime  DateTime? @db.Timestamp(0)
+  med_rn     Int       @db.SmallInt
+  name       String?   @db.VarChar(255)
+  gsn_rn     Int       @db.SmallInt
+  gsn        String?   @db.VarChar(10)
+  edstays    edstays   @relation(fields: [stay_id], references: [stay_id], onDelete: NoAction, onUpdate: NoAction, map: "pyxis_edstays_fk")
+
+  @@index([subject_id, stay_id, charttime], map: "pyxis_idx01")
+  @@index([gsn], map: "pyxis_idx02")
+  @@ignore
+  @@schema("mimiciv_ed")
+}
+
+model triage {
+  subject_id     Int
+  stay_id        Int      @id(map: "triage_pk")
+  temperature    Decimal? @db.Decimal
+  heartrate      Decimal? @db.Decimal
+  resprate       Decimal? @db.Decimal
+  o2sat          Decimal? @db.Decimal
+  sbp            Decimal? @db.Decimal
+  dbp            Decimal? @db.Decimal
+  pain           String?
+  acuity         Decimal? @db.Decimal
+  chiefcomplaint String?  @db.VarChar(255)
+  edstays        edstays  @relation(fields: [stay_id], references: [stay_id], onDelete: NoAction, onUpdate: NoAction, map: "triage_edstays_fk")
+
+  @@index([subject_id, stay_id], map: "triage_idx01")
+  @@schema("mimiciv_ed")
+}
+
+model vitalsign {
+  subject_id  Int
+  stay_id     Int
+  charttime   DateTime @db.Timestamp(0)
+  temperature Decimal? @db.Decimal
+  heartrate   Decimal? @db.Decimal
+  resprate    Decimal? @db.Decimal(10, 4)
+  o2sat       Decimal? @db.Decimal
+  sbp         Int?
+  dbp         Int?
+  rhythm      String?
+  pain        String?
+  edstays     edstays  @relation(fields: [stay_id], references: [stay_id], onDelete: NoAction, onUpdate: NoAction, map: "vitalsign_edstays_fk")
+
+  @@id([stay_id, charttime], map: "vitalsign_pk")
+  @@index([subject_id, stay_id, charttime], map: "vitalsign_idx01")
+  @@schema("mimiciv_ed")
+}
+
+/// The underlying table does not contain a valid unique identifier and can therefore currently not be handled by Prisma Client.
+model admissions {
+  subject_id           Int
+  hadm_id              Int
+  admittime            DateTime  @db.Timestamp(6)
+  dischtime            DateTime? @db.Timestamp(6)
+  deathtime            DateTime? @db.Timestamp(6)
+  admission_type       String    @db.VarChar(40)
+  admit_provider_id    String?   @db.VarChar(10)
+  admission_location   String?   @db.VarChar(60)
+  discharge_location   String?   @db.VarChar(60)
+  insurance            String?   @db.VarChar(255)
+  language             String?   @db.VarChar(25)
+  marital_status       String?   @db.VarChar(30)
+  race                 String?   @db.VarChar(80)
+  edregtime            DateTime? @db.Timestamp(6)
+  edouttime            DateTime? @db.Timestamp(6)
+  hospital_expire_flag Int?      @db.SmallInt
+
+  @@index([admittime, dischtime, deathtime], map: "admissions_idx01")
+  @@ignore
+  @@schema("mimiciv_hosp")
+}
+
+/// The underlying table does not contain a valid unique identifier and can therefore currently not be handled by Prisma Client.
+model d_hcpcs {
+  code              String  @db.Char(5)
+  category          Int?    @db.SmallInt
+  long_description  String?
+  short_description String? @db.VarChar(180)
+
+  @@ignore
+  @@schema("mimiciv_hosp")
+}
+
+/// The underlying table does not contain a valid unique identifier and can therefore currently not be handled by Prisma Client.
+model d_icd_diagnoses {
+  icd_code    String  @db.Char(7)
+  icd_version Int     @db.SmallInt
+  long_title  String? @db.VarChar(255)
+
+  @@index([long_title], map: "d_icd_diag_idx02")
+  @@ignore
+  @@schema("mimiciv_hosp")
+}
+
+/// The underlying table does not contain a valid unique identifier and can therefore currently not be handled by Prisma Client.
+model d_icd_procedures {
+  icd_code    String  @db.Char(7)
+  icd_version Int     @db.SmallInt
+  long_title  String? @db.VarChar(222)
+
+  @@index([long_title], map: "d_icd_proc_idx02")
+  @@ignore
+  @@schema("mimiciv_hosp")
+}
+
+/// The underlying table does not contain a valid unique identifier and can therefore currently not be handled by Prisma Client.
+model d_labitems {
+  itemid   Int
+  label    String? @db.VarChar(50)
+  fluid    String? @db.VarChar(50)
+  category String? @db.VarChar(50)
+
+  @@index([label, fluid, category], map: "d_labitems_idx01")
+  @@ignore
+  @@schema("mimiciv_hosp")
+}
+
+/// The underlying table does not contain a valid unique identifier and can therefore currently not be handled by Prisma Client.
+model diagnoses_icd {
+  subject_id  Int
+  hadm_id     Int
+  seq_num     Int
+  icd_code    String? @db.Char(7)
+  icd_version Int?    @db.SmallInt
+
+  @@ignore
+  @@schema("mimiciv_hosp")
+}
+
+/// The underlying table does not contain a valid unique identifier and can therefore currently not be handled by Prisma Client.
+model drgcodes {
+  subject_id    Int
+  hadm_id       Int
+  drg_type      String? @db.VarChar(4)
+  drg_code      String  @db.VarChar(10)
+  description   String? @db.VarChar(195)
+  drg_severity  Int?    @db.SmallInt
+  drg_mortality Int?    @db.SmallInt
+
+  @@index([drg_code, drg_type], map: "drgcodes_idx01")
+  @@index([description, drg_severity], map: "drgcodes_idx02")
+  @@ignore
+  @@schema("mimiciv_hosp")
+}
+
+/// The underlying table does not contain a valid unique identifier and can therefore currently not be handled by Prisma Client.
+model emar {
+  subject_id        Int
+  hadm_id           Int?
+  emar_id           String    @db.VarChar(25)
+  emar_seq          Int
+  poe_id            String    @db.VarChar(25)
+  pharmacy_id       Int?
+  enter_provider_id String?   @db.VarChar(10)
+  charttime         DateTime  @db.Timestamp(6)
+  medication        String?
+  event_txt         String?   @db.VarChar(100)
+  scheduletime      DateTime? @db.Timestamp(6)
+  storetime         DateTime  @db.Timestamp(6)
+
+  @@index([poe_id], map: "emar_idx01")
+  @@index([pharmacy_id], map: "emar_idx02")
+  @@index([charttime, scheduletime, storetime], map: "emar_idx03")
+  @@index([medication], map: "emar_idx04")
+  @@ignore
+  @@schema("mimiciv_hosp")
+}
+
+/// The underlying table does not contain a valid unique identifier and can therefore currently not be handled by Prisma Client.
+model emar_detail {
+  subject_id                           Int
+  emar_id                              String  @db.VarChar(25)
+  emar_seq                             Int
+  parent_field_ordinal                 String? @db.VarChar(10)
+  administration_type                  String? @db.VarChar(50)
+  pharmacy_id                          Int?
+  barcode_type                         String? @db.VarChar(4)
+  reason_for_no_barcode                String?
+  complete_dose_not_given              String? @db.VarChar(5)
+  dose_due                             String? @db.VarChar(100)
+  dose_due_unit                        String? @db.VarChar(50)
+  dose_given                           String? @db.VarChar(255)
+  dose_given_unit                      String? @db.VarChar(50)
+  will_remainder_of_dose_be_given      String? @db.VarChar(5)
+  product_amount_given                 String? @db.VarChar(30)
+  product_unit                         String? @db.VarChar(30)
+  product_code                         String? @db.VarChar(30)
+  product_description                  String? @db.VarChar(255)
+  product_description_other            String? @db.VarChar(255)
+  prior_infusion_rate                  String? @db.VarChar(40)
+  infusion_rate                        String? @db.VarChar(40)
+  infusion_rate_adjustment             String? @db.VarChar(50)
+  infusion_rate_adjustment_amount      String? @db.VarChar(30)
+  infusion_rate_unit                   String? @db.VarChar(30)
+  route                                String? @db.VarChar(10)
+  infusion_complete                    String? @db.VarChar(1)
+  completion_interval                  String? @db.VarChar(50)
+  new_iv_bag_hung                      String? @db.VarChar(1)
+  continued_infusion_in_other_location String? @db.VarChar(1)
+  restart_interval                     String? @db.VarChar(2305)
+  side                                 String? @db.VarChar(10)
+  site                                 String? @db.VarChar(255)
+  non_formulary_visual_verification    String? @db.VarChar(1)
+
+  @@index([product_description], map: "emar_det_idx04")
+  @@index([pharmacy_id], map: "emar_detail_idx01")
+  @@index([product_code], map: "emar_detail_idx02")
+  @@index([route, site, side], map: "emar_detail_idx03")
+  @@ignore
+  @@schema("mimiciv_hosp")
+}
+
+/// The underlying table does not contain a valid unique identifier and can therefore currently not be handled by Prisma Client.
+model hcpcsevents {
+  subject_id        Int
+  hadm_id           Int
+  chartdate         DateTime? @db.Date
+  hcpcs_cd          String    @db.Char(5)
+  seq_num           Int
+  short_description String?   @db.VarChar(180)
+
+  @@index([short_description], map: "hcpcsevents_idx04")
+  @@ignore
+  @@schema("mimiciv_hosp")
+}
+
+/// The underlying table does not contain a valid unique identifier and can therefore currently not be handled by Prisma Client.
+model labevents {
+  labevent_id       Int
+  subject_id        Int
+  hadm_id           Int?
+  specimen_id       Int
+  itemid            Int
+  order_provider_id String?   @db.VarChar(10)
+  charttime         DateTime? @db.Timestamp(0)
+  storetime         DateTime? @db.Timestamp(0)
+  value             String?   @db.VarChar(200)
+  valuenum          Float?
+  valueuom          String?   @db.VarChar(20)
+  ref_range_lower   Float?
+  ref_range_upper   Float?
+  flag              String?   @db.VarChar(10)
+  priority          String?   @db.VarChar(7)
+  comments          String?
+
+  @@index([charttime, storetime], map: "labevents_idx01")
+  @@index([specimen_id], map: "labevents_idx02")
+  @@ignore
+  @@schema("mimiciv_hosp")
+}
+
+/// The underlying table does not contain a valid unique identifier and can therefore currently not be handled by Prisma Client.
+model microbiologyevents {
+  microevent_id       Int
+  subject_id          Int
+  hadm_id             Int?
+  micro_specimen_id   Int
+  order_provider_id   String?   @db.VarChar(10)
+  chartdate           DateTime  @db.Timestamp(0)
+  charttime           DateTime? @db.Timestamp(0)
+  spec_itemid         Int
+  spec_type_desc      String    @db.VarChar(100)
+  test_seq            Int
+  storedate           DateTime? @db.Timestamp(0)
+  storetime           DateTime? @db.Timestamp(0)
+  test_itemid         Int?
+  test_name           String?   @db.VarChar(100)
+  org_itemid          Int?
+  org_name            String?   @db.VarChar(100)
+  isolate_num         Int?      @db.SmallInt
+  quantity            String?   @db.VarChar(50)
+  ab_itemid           Int?
+  ab_name             String?   @db.VarChar(30)
+  dilution_text       String?   @db.VarChar(10)
+  dilution_comparison String?   @db.VarChar(20)
+  dilution_value      Float?
+  interpretation      String?   @db.VarChar(5)
+  comments            String?
+
+  @@index([chartdate, charttime, storedate, storetime], map: "microbiologyevents_idx01")
+  @@index([spec_itemid, test_itemid, org_itemid, ab_itemid], map: "microbiologyevents_idx02")
+  @@index([micro_specimen_id], map: "microbiologyevents_idx03")
+  @@ignore
+  @@schema("mimiciv_hosp")
+}
+
+/// The underlying table does not contain a valid unique identifier and can therefore currently not be handled by Prisma Client.
+model omr {
+  subject_id   Int
+  chartdate    DateTime @db.Date
+  seq_num      Int
+  result_name  String   @db.VarChar(100)
+  result_value String
+
+  @@ignore
+  @@schema("mimiciv_hosp")
+}
+
+/// The underlying table does not contain a valid unique identifier and can therefore currently not be handled by Prisma Client.
+model pharmacy {
+  subject_id        Int
+  hadm_id           Int
+  pharmacy_id       Int
+  poe_id            String?   @db.VarChar(25)
+  starttime         DateTime?
+  stoptime          DateTime?
+  medication        String?
+  proc_type         String    @db.VarChar(50)
+  status            String?   @db.VarChar(50)
+  entertime         DateTime
+  verifiedtime      DateTime?
+  route             String?   @db.VarChar(50)
+  frequency         String?   @db.VarChar(50)
+  disp_sched        String?   @db.VarChar(255)
+  infusion_type     String?   @db.VarChar(15)
+  sliding_scale     String?   @db.VarChar(1)
+  lockout_interval  String?   @db.VarChar(50)
+  basal_rate        Float?    @db.Real
+  one_hr_max        String?   @db.VarChar(10)
+  doses_per_24_hrs  Float?    @db.Real
+  duration          Float?    @db.Real
+  duration_interval String?   @db.VarChar(50)
+  expiration_value  Int?
+  expiration_unit   String?   @db.VarChar(50)
+  expirationdate    DateTime?
+  dispensation      String?   @db.VarChar(50)
+  fill_quantity     String?   @db.VarChar(50)
+
+  @@index([poe_id], map: "pharmacy_idx01")
+  @@index([starttime, stoptime], map: "pharmacy_idx02")
+  @@index([medication], map: "pharmacy_idx03")
+  @@index([route], map: "pharmacy_idx04")
+  @@ignore
+  @@schema("mimiciv_hosp")
+}
+
+/// The underlying table does not contain a valid unique identifier and can therefore currently not be handled by Prisma Client.
+model poe {
+  poe_id                 String   @db.VarChar(25)
+  poe_seq                Int
+  subject_id             Int
+  hadm_id                Int?
+  ordertime              DateTime @db.Timestamp(0)
+  order_type             String   @db.VarChar(25)
+  order_subtype          String?  @db.VarChar(50)
+  transaction_type       String?  @db.VarChar(15)
+  discontinue_of_poe_id  String?  @db.VarChar(25)
+  discontinued_by_poe_id String?  @db.VarChar(25)
+  order_provider_id      String?  @db.VarChar(10)
+  order_status           String?  @db.VarChar(15)
+
+  @@index([order_type], map: "poe_idx01")
+  @@ignore
+  @@schema("mimiciv_hosp")
+}
+
+/// The underlying table does not contain a valid unique identifier and can therefore currently not be handled by Prisma Client.
+model poe_detail {
+  poe_id      String  @db.VarChar(25)
+  poe_seq     Int
+  subject_id  Int
+  field_name  String  @db.VarChar(255)
+  field_value String?
+
+  @@ignore
+  @@schema("mimiciv_hosp")
+}
+
+/// The underlying table does not contain a valid unique identifier and can therefore currently not be handled by Prisma Client.
+model prescriptions {
+  subject_id        Int
+  hadm_id           Int
+  pharmacy_id       Int
+  poe_id            String?   @db.VarChar(25)
+  poe_seq           Int?
+  order_provider_id String?   @db.VarChar(10)
+  starttime         DateTime?
+  stoptime          DateTime?
+  drug_type         String    @db.VarChar(20)
+  drug              String    @db.VarChar(255)
+  formulary_drug_cd String?   @db.VarChar(50)
+  gsn               String?   @db.VarChar(255)
+  ndc               String?   @db.VarChar(25)
+  prod_strength     String?   @db.VarChar(255)
+  form_rx           String?   @db.VarChar(25)
+  dose_val_rx       String?   @db.VarChar(100)
+  dose_unit_rx      String?   @db.VarChar(50)
+  form_val_disp     String?   @db.VarChar(50)
+  form_unit_disp    String?   @db.VarChar(50)
+  doses_per_24_hrs  Float?    @db.Real
+  route             String?   @db.VarChar(50)
+
+  @@index([starttime, stoptime], map: "prescriptions_idx01")
+  @@ignore
+  @@schema("mimiciv_hosp")
+}
+
+/// The underlying table does not contain a valid unique identifier and can therefore currently not be handled by Prisma Client.
+model procedures_icd {
+  subject_id  Int
+  hadm_id     Int
+  seq_num     Int
+  chartdate   DateTime @db.Date
+  icd_code    String?  @db.VarChar(7)
+  icd_version Int?     @db.SmallInt
+
+  @@ignore
+  @@schema("mimiciv_hosp")
+}
+
+/// The underlying table does not contain a valid unique identifier and can therefore currently not be handled by Prisma Client.
+model provider {
+  provider_id String @db.VarChar(10)
+
+  @@ignore
+  @@schema("mimiciv_hosp")
+}
+
+/// The underlying table does not contain a valid unique identifier and can therefore currently not be handled by Prisma Client.
+model services {
+  subject_id   Int
+  hadm_id      Int
+  transfertime DateTime @db.Timestamp(6)
+  prev_service String?  @db.VarChar(10)
+  curr_service String?  @db.VarChar(10)
+
+  @@ignore
+  @@schema("mimiciv_hosp")
+}
+
+/// The underlying table does not contain a valid unique identifier and can therefore currently not be handled by Prisma Client.
+model transfers {
+  subject_id  Int
+  hadm_id     Int?
+  transfer_id Int
+  eventtype   String?   @db.VarChar(10)
+  careunit    String?   @db.VarChar(255)
+  intime      DateTime? @db.Timestamp(6)
+  outtime     DateTime? @db.Timestamp(6)
+
+  @@index([hadm_id], map: "transfers_idx01")
+  @@index([intime], map: "transfers_idx02")
+  @@index([careunit], map: "transfers_idx03")
+  @@ignore
+  @@schema("mimiciv_hosp")
+}
+
+/// The underlying table does not contain a valid unique identifier and can therefore currently not be handled by Prisma Client.
+model caregiver {
+  caregiver_id Int
+
+  @@ignore
+  @@schema("mimiciv_icu")
+}
+
+/// The underlying table does not contain a valid unique identifier and can therefore currently not be handled by Prisma Client.
+model chartevents {
+  subject_id   Int
+  hadm_id      Int
+  stay_id      Int
+  caregiver_id Int?
+  charttime    DateTime  @db.Timestamp(6)
+  storetime    DateTime? @db.Timestamp(6)
+  itemid       Int
+  value        String?   @db.VarChar(200)
+  valuenum     Float?
+  valueuom     String?   @db.VarChar(20)
+  warning      Int?      @db.SmallInt
+
+  @@index([charttime, storetime], map: "chartevents_idx01")
+  @@ignore
+  @@schema("mimiciv_icu")
+}
+
+/// The underlying table does not contain a valid unique identifier and can therefore currently not be handled by Prisma Client.
+model d_items {
+  itemid          Int
+  label           String  @db.VarChar(100)
+  abbreviation    String  @db.VarChar(50)
+  linksto         String  @db.VarChar(30)
+  category        String  @db.VarChar(50)
+  unitname        String? @db.VarChar(50)
+  param_type      String  @db.VarChar(20)
+  lownormalvalue  Float?
+  highnormalvalue Float?
+
+  @@index([label, abbreviation], map: "d_items_idx01")
+  @@index([category], map: "d_items_idx02")
+  @@ignore
+  @@schema("mimiciv_icu")
+}
+
+/// The underlying table does not contain a valid unique identifier and can therefore currently not be handled by Prisma Client.
+model datetimeevents {
+  subject_id   Int
+  hadm_id      Int
+  stay_id      Int
+  caregiver_id Int?
+  charttime    DateTime  @db.Timestamp(6)
+  storetime    DateTime? @db.Timestamp(6)
+  itemid       Int
+  value        DateTime  @db.Timestamp(6)
+  valueuom     String?   @db.VarChar(20)
+  warning      Int?      @db.SmallInt
+
+  @@index([charttime, storetime], map: "datetimeevents_idx01")
+  @@index([value], map: "datetimeevents_idx02")
+  @@ignore
+  @@schema("mimiciv_icu")
+}
+
+/// The underlying table does not contain a valid unique identifier and can therefore currently not be handled by Prisma Client.
+model icustays {
+  subject_id     Int
+  hadm_id        Int
+  stay_id        Int
+  first_careunit String?   @db.VarChar(255)
+  last_careunit  String?   @db.VarChar(255)
+  intime         DateTime? @db.Timestamp(6)
+  outtime        DateTime? @db.Timestamp(6)
+  los            Float?
+
+  @@index([first_careunit, last_careunit], map: "icustays_idx01")
+  @@index([intime, outtime], map: "icustays_idx02")
+  @@ignore
+  @@schema("mimiciv_icu")
+}
+
+/// The underlying table does not contain a valid unique identifier and can therefore currently not be handled by Prisma Client.
+model ingredientevents {
+  subject_id        Int
+  hadm_id           Int
+  stay_id           Int?
+  caregiver_id      Int?
+  starttime         DateTime  @db.Timestamp(6)
+  endtime           DateTime  @db.Timestamp(6)
+  storetime         DateTime? @db.Timestamp(6)
+  itemid            Int
+  amount            Float?
+  amountuom         String?   @db.VarChar(20)
+  rate              Float?
+  rateuom           String?   @db.VarChar(20)
+  orderid           Int
+  linkorderid       Int?
+  statusdescription String?   @db.VarChar(20)
+  originalamount    Float?
+  originalrate      Float?
+
+  @@ignore
+  @@schema("mimiciv_icu")
+}
+
+/// The underlying table does not contain a valid unique identifier and can therefore currently not be handled by Prisma Client.
+model inputevents {
+  subject_id                    Int
+  hadm_id                       Int
+  stay_id                       Int?
+  caregiver_id                  Int?
+  starttime                     DateTime  @db.Timestamp(6)
+  endtime                       DateTime  @db.Timestamp(6)
+  storetime                     DateTime? @db.Timestamp(6)
+  itemid                        Int
+  amount                        Float?
+  amountuom                     String?   @db.VarChar(20)
+  rate                          Float?
+  rateuom                       String?   @db.VarChar(20)
+  orderid                       Int
+  linkorderid                   Int?
+  ordercategoryname             String?   @db.VarChar(50)
+  secondaryordercategoryname    String?   @db.VarChar(50)
+  ordercomponenttypedescription String?   @db.VarChar(100)
+  ordercategorydescription      String?   @db.VarChar(30)
+  patientweight                 Float?
+  totalamount                   Float?
+  totalamountuom                String?   @db.VarChar(50)
+  isopenbag                     Int?      @db.SmallInt
+  continueinnextdept            Int?      @db.SmallInt
+  statusdescription             String?   @db.VarChar(20)
+  originalamount                Float?
+  originalrate                  Float?
+
+  @@index([starttime, endtime], map: "inputevents_idx01")
+  @@index([ordercategorydescription], map: "inputevents_idx02")
+  @@ignore
+  @@schema("mimiciv_icu")
+}
+
+/// The underlying table does not contain a valid unique identifier and can therefore currently not be handled by Prisma Client.
+model outputevents {
+  subject_id   Int
+  hadm_id      Int
+  stay_id      Int
+  caregiver_id Int?
+  charttime    DateTime
+  storetime    DateTime
+  itemid       Int
+  value        Float
+  valueuom     String?  @db.VarChar(20)
+
+  @@index([charttime, storetime], map: "outputevents_idx01")
+  @@ignore
+  @@schema("mimiciv_icu")
+}
+
+/// The underlying table does not contain a valid unique identifier and can therefore currently not be handled by Prisma Client.
+model procedureevents {
+  subject_id               Int
+  hadm_id                  Int
+  stay_id                  Int
+  caregiver_id             Int?
+  starttime                DateTime @db.Timestamp(6)
+  endtime                  DateTime @db.Timestamp(6)
+  storetime                DateTime @db.Timestamp(6)
+  itemid                   Int
+  value                    Float?
+  valueuom                 String?  @db.VarChar(20)
+  location                 String?  @db.VarChar(100)
+  locationcategory         String?  @db.VarChar(50)
+  orderid                  Int?
+  linkorderid              Int?
+  ordercategoryname        String?  @db.VarChar(50)
+  ordercategorydescription String?  @db.VarChar(30)
+  patientweight            Float?
+  isopenbag                Int?     @db.SmallInt
+  continueinnextdept       Int?     @db.SmallInt
+  statusdescription        String?  @db.VarChar(20)
+  originalamount           Float?
+  originalrate             Float?
+
+  @@index([starttime, endtime], map: "procedureevents_idx01")
+  @@index([ordercategoryname], map: "procedureevents_idx02")
+  @@ignore
+  @@schema("mimiciv_icu")
+}
+
+/// The underlying table does not contain a valid unique identifier and can therefore currently not be handled by Prisma Client.
+model discharge {
+  note_id    String    @db.VarChar(25)
+  subject_id Int
+  hadm_id    Int
+  note_type  String    @db.VarChar(2)
+  note_seq   Int       @db.SmallInt
+  charttime  DateTime  @db.Timestamp(6)
+  storetime  DateTime? @db.Timestamp(6)
+  text       String
+
+  @@ignore
+  @@schema("mimiciv_note")
+}
+
+/// The underlying table does not contain a valid unique identifier and can therefore currently not be handled by Prisma Client.
+model discharge_detail {
+  note_id       String @db.VarChar(25)
+  subject_id    Int
+  field_name    String @db.VarChar(255)
+  field_value   String
+  field_ordinal Int
+
+  @@ignore
+  @@schema("mimiciv_note")
+}
+
+/// The underlying table does not contain a valid unique identifier and can therefore currently not be handled by Prisma Client.
+model radiology {
+  note_id    String    @db.VarChar(25)
+  subject_id Int
+  hadm_id    Int?
+  note_type  String    @db.VarChar(2)
+  note_seq   Int       @db.SmallInt
+  charttime  DateTime  @db.Timestamp(6)
+  storetime  DateTime? @db.Timestamp(6)
+  text       String
+
+  @@ignore
+  @@schema("mimiciv_note")
+}
+
+/// The underlying table does not contain a valid unique identifier and can therefore currently not be handled by Prisma Client.
+model radiology_detail {
+  note_id       String @db.VarChar(25)
+  subject_id    Int
+  field_name    String @db.VarChar(255)
+  field_value   String
+  field_ordinal Int
+
+  @@ignore
+  @@schema("mimiciv_note")
+}
