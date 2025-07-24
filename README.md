@@ -63,18 +63,6 @@ This project demonstrates my ability to architect, implement, and test a scalabl
 
 ---
 
-## Key Endpoints
-
-| API                | Endpoint                                                        | Parameters                | Auth Required |
-|--------------------|-----------------------------------------------------------------|---------------------------|--------------|
-| Get Patients       | `/getPaginatedPatients`                                         | `limit`, `offset`         | Yes          |
-| Get Patient Detail | `/getFullPatientData?subject_id={id}`                           | `subject_id`              | Yes          |
-
-- All endpoints require authentication (Firebase JWT or session).
-- Endpoints are managed centrally for maintainability.
-
----
-
 ## Getting Started
 
 ### Prerequisites
