@@ -127,7 +127,7 @@ This project demonstrates my ability to:
 
 ![Login](./screenshots/login.png)
 
-![Login with Google Account](./screenshots/loginWithGoogleAccount.png)
+<img src="./screenshots/loginWithGoogleAccount.png" alt="Login with Google Account" width="300"/>
 
 ![Patient Search](./screenshots/patientSearch.png)
 
